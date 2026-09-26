@@ -1,17 +1,10 @@
-import os
-import gradio as gr
+import streamlit as st
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 
+st.set_page_config(page_title="Consumer Complaint Classifier", page_icon="📋", layout="centered")
+
 MODEL_REPO = "AhmedRdwan/consumer-complaint-classifier"
-
-app_model = AutoModelForSequenceClassification.from_pretrained(MODEL_REPO)
-app_tokenizer = AutoTokenizer.from_pretrained(MODEL_REPO)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-app_model.to(device)
-app_model.eval()
-
 LABELS = ["credit_card", "credit_reporting", "debt_collection", "mortgages_and_loans", "retail_banking"]
 LABEL_DISPLAY = {
     "credit_card": "Credit Card",
@@ -23,84 +16,67 @@ LABEL_DISPLAY = {
 MAX_LEN = 250
 
 
+@st.cache_resource   # يحمّل الموديل مرة واحدة بس، مش كل مرة المستخدم يعمل تفاعل
+def load_model():
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_REPO)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_REPO)
+    model.eval()
+    return model, tokenizer
+
+
+model, tokenizer = load_model()
+device = torch.device("cpu")
+
+
 def classify_complaint(text):
-    if not text or not text.strip():
-        return {LABEL_DISPLAY[l]: 0.0 for l in LABELS}, "Please enter a complaint to classify."
-
-    inputs = app_tokenizer(
-        text, truncation=True, padding="max_length", max_length=MAX_LEN, return_tensors="pt"
-    )
-    inputs = {k: v.to(device) for k, v in inputs.items() if k != "token_type_ids"}
-
+    inputs = tokenizer(text, truncation=True, padding="max_length", max_length=MAX_LEN, return_tensors="pt")
+    inputs = {k: v for k, v in inputs.items() if k != "token_type_ids"}
     with torch.no_grad():
-        outputs = app_model(**inputs)
-        probs = torch.softmax(outputs.logits, dim=1).cpu().numpy()[0]
-
-    result = {LABEL_DISPLAY[label]: float(prob) for label, prob in zip(LABELS, probs)}
-    top_label = LABEL_DISPLAY[LABELS[probs.argmax()]]
-    top_confidence = float(probs.max())
-
-    status = f"**Predicted Category:** {top_label}  \n**Confidence:** {top_confidence:.1%}"
-    return result, status
+        outputs = model(**inputs)
+        probs = torch.softmax(outputs.logits, dim=1).numpy()[0]
+    return probs
 
 
-custom_css = """
-.gradio-container { font-family: 'Inter', -apple-system, sans-serif; max-width: 900px !important; margin: auto; }
-#header { text-align: center; padding: 10px 0 20px 0; }
-#header h1 { font-size: 1.8em; margin-bottom: 4px; }
-#header p { color: #666; font-size: 0.95em; }
-#footer { text-align: center; padding-top: 20px; color: #888; font-size: 0.85em; }
-#footer a { color: #888; }
-"""
+# --- الواجهة ---
+st.title("📋 Consumer Complaint Classifier")
+st.markdown(
+    "Automatically routes financial consumer complaints to the correct category "
+    "using a fine-tuned **DistilBERT** model, trained on CFPB complaint data."
+)
 
-with gr.Blocks(css=custom_css, theme=gr.themes.Soft(primary_hue="blue")) as demo:
-    gr.HTML(
-        """
-        <div id="header">
-            <h1>📋 Consumer Complaint Classifier</h1>
-            <p>Automatically routes financial consumer complaints to the correct category
-            using a fine-tuned DistilBERT model, trained on CFPB complaint data.</p>
-        </div>
-        """
-    )
+examples = [
+    "I have been trying to dispute an incorrect entry on my credit report for months and no one responds.",
+    "A debt collector keeps calling me multiple times a day about a debt I already paid off.",
+    "My mortgage payment increased suddenly without any explanation from the lender.",
+]
 
-    with gr.Row():
-        with gr.Column(scale=3):
-            input_box = gr.Textbox(
-                lines=8,
-                placeholder="Paste or type a consumer complaint narrative here...",
-                label="Complaint Narrative"
-            )
-            submit_btn = gr.Button("Classify Complaint", variant="primary")
+chosen_example = st.selectbox("Try an example (optional):", ["-- Select an example --"] + examples)
+default_text = "" if chosen_example == "-- Select an example --" else chosen_example
 
-            gr.Examples(
-                examples=[
-                    "I have been trying to dispute an incorrect entry on my credit report for months and no one responds.",
-                    "A debt collector keeps calling me multiple times a day about a debt I already paid off.",
-                    "My mortgage payment increased suddenly without any explanation from the lender.",
-                ],
-                inputs=input_box,
-                label="Try an example"
-            )
+text_input = st.text_area("Complaint Narrative", value=default_text, height=180,
+                           placeholder="Paste or type a consumer complaint here...")
 
-        with gr.Column(scale=2):
-            output_status = gr.Markdown()
-            output_label = gr.Label(num_top_classes=5, label="Category Probabilities")
+if st.button("Classify Complaint", type="primary"):
+    if not text_input.strip():
+        st.warning("Please enter a complaint to classify.")
+    else:
+        with st.spinner("Analyzing..."):
+            probs = classify_complaint(text_input)
 
-    submit_btn.click(fn=classify_complaint, inputs=input_box, outputs=[output_label, output_status])
-    input_box.submit(fn=classify_complaint, inputs=input_box, outputs=[output_label, output_status])
+        top_index = probs.argmax()
+        top_label = LABEL_DISPLAY[LABELS[top_index]]
+        top_confidence = probs[top_index]
 
-    gr.HTML(
-        """
-        <div id="footer">
-            Model: <a href="https://huggingface.co/AhmedRdwan/consumer-complaint-classifier" target="_blank">DistilBERT fine-tuned on CFPB complaints</a>
-            &nbsp;|&nbsp;
-            <a href="https://github.com/AhmedRdwan/consumer-complaint-app" target="_blank">Source code &amp; training notebook</a>
-        </div>
-        """
-    )
+        st.success(f"**Predicted Category:** {top_label}  \n**Confidence:** {top_confidence:.1%}")
 
-demo.launch(
-    server_name="0.0.0.0",
-    server_port=int(os.environ.get("PORT", 7860))
+        st.markdown("#### Probability by category")
+        sorted_pairs = sorted(zip(LABELS, probs), key=lambda x: x[1], reverse=True)
+        for label, prob in sorted_pairs:
+            st.write(LABEL_DISPLAY[label])
+            st.progress(float(prob))
+
+st.markdown("---")
+st.caption(
+    "Model: [DistilBERT fine-tuned on CFPB complaints](https://huggingface.co/AhmedRdwan/consumer-complaint-classifier) &nbsp;|&nbsp; "
+    "[Source code & training notebook](https://github.com/AhmedRdwan/consumer-complaint-app)"
 )
