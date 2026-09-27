@@ -7,6 +7,7 @@
 [![Live App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://consumer-complaint-app.streamlit.app/)
 [![Model on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Model-HuggingFace-yellow)](https://huggingface.co/AhmedRdwan/consumer-complaint-classifier)
 [![Kaggle Notebook](https://img.shields.io/badge/Kaggle-Notebook-20BEFF?logo=kaggle&logoColor=white)](https://www.kaggle.com/code/ahmedrdwan/consumer-complaint-classification)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/ahmed-radwn/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-DistilBERT-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 
@@ -232,7 +233,7 @@ The app downloads the fine-tuned model directly from the Hugging Face Hub on fir
 ## 👤 Author
 
 **Ahmed Rdwan**
-🤗 [Hugging Face](https://huggingface.co/AhmedRdwan) · 💻 [GitHub](https://github.com/ahmed-rdwan) · 📓 [Kaggle](https://www.kaggle.com/ahmedrdwan)
+🤗 [Hugging Face](https://huggingface.co/AhmedRdwan) · 💻 [GitHub](https://github.com/ahmed-rdwan) · 📓 [Kaggle](https://www.kaggle.com/ahmedrdwan) · 💼 [LinkedIn](https://www.linkedin.com/in/ahmed-radwn/)
 
 <div align="center">
 <sub>Built as a portfolio NLP project. Not affiliated with the CFPB.</sub>
